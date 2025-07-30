@@ -39,6 +39,10 @@ It provides optimized performance for large repositories and seamless GitHub int
 		newResetCommand(),
 		newTagCommand(),
 		newRemoteCommand(),
+		newFetchCommand(),
+		newPushCommand(),
+		newPullCommand(),
+		newStashCommand(),
 	)
 
 	if err := rootCmd.Execute(); err != nil {
