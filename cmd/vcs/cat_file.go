@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/fenilsonani/vcs/internal/core/objects"
 	"github.com/fenilsonani/vcs/pkg/vcs"
@@ -44,15 +43,15 @@ func newCatFileCommand() *cobra.Command {
 			// Handle different output modes
 			switch {
 			case showType:
-				fmt.Println(obj.Type())
+				fmt.Fprintln(cmd.OutOrStdout(), obj.Type())
 			case showSize:
-				fmt.Println(obj.Size())
+				fmt.Fprintln(cmd.OutOrStdout(), obj.Size())
 			case showContent || pretty:
 				data, err := obj.Serialize()
 				if err != nil {
 					return fmt.Errorf("failed to serialize object: %w", err)
 				}
-				os.Stdout.Write(data)
+				cmd.OutOrStdout().Write(data)
 			default:
 				return fmt.Errorf("must specify one of -t, -s, -e, or -p")
 			}

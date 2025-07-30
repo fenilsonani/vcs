@@ -1,0 +1,374 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>vcs: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/fenilsonani/vcs/pkg/vcs/repository.go (57.7%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package vcs
+
+import (
+        "fmt"
+        "io"
+        "os"
+        "path/filepath"
+
+        "github.com/fenilsonani/vcs/internal/core/objects"
+)
+
+// Repository represents a git repository
+type Repository struct {
+        path    string
+        gitDir  string
+        storage *objects.Storage
+}
+
+// Init initializes a new repository at the given path
+func Init(path string) (*Repository, error) <span class="cov8" title="1">{
+        // Create repository directory
+        if err := os.MkdirAll(path, 0755); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to create repository directory: %w", err)
+        }</span>
+        
+        <span class="cov8" title="1">gitDir := filepath.Join(path, ".git")
+        
+        // Create .git directory
+        if err := os.MkdirAll(gitDir, 0755); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to create .git directory: %w", err)
+        }</span>
+        
+        // Initialize object storage
+        <span class="cov8" title="1">storage := objects.NewStorage(gitDir)
+        if err := storage.Init(); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to initialize object storage: %w", err)
+        }</span>
+        
+        // Create other necessary directories
+        <span class="cov8" title="1">dirs := []string{"refs/heads", "refs/tags", "hooks", "info"}
+        for _, dir := range dirs </span><span class="cov8" title="1">{
+                fullPath := filepath.Join(gitDir, dir)
+                if err := os.MkdirAll(fullPath, 0755); err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to create %s directory: %w", dir, err)
+                }</span>
+        }
+        
+        // Create HEAD file
+        <span class="cov8" title="1">headPath := filepath.Join(gitDir, "HEAD")
+        headContent := "ref: refs/heads/main\n"
+        if err := os.WriteFile(headPath, []byte(headContent), 0644); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to create HEAD file: %w", err)
+        }</span>
+        
+        // Create config file
+        <span class="cov8" title="1">configPath := filepath.Join(gitDir, "config")
+        configContent := `[core]
+        repositoryformatversion = 0
+        filemode = true
+        bare = false
+        logallrefupdates = true
+`
+        if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to create config file: %w", err)
+        }</span>
+        
+        // Create description file
+        <span class="cov8" title="1">descPath := filepath.Join(gitDir, "description")
+        descContent := "Unnamed repository; edit this file 'description' to name the repository.\n"
+        if err := os.WriteFile(descPath, []byte(descContent), 0644); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to create description file: %w", err)
+        }</span>
+        
+        <span class="cov8" title="1">return &amp;Repository{
+                path:    path,
+                gitDir:  gitDir,
+                storage: storage,
+        }, nil</span>
+}
+
+// Open opens an existing repository
+func Open(path string) (*Repository, error) <span class="cov8" title="1">{
+        // Find .git directory
+        gitDir := filepath.Join(path, ".git")
+        if info, err := os.Stat(gitDir); err != nil || !info.IsDir() </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("not a git repository: %s", path)
+        }</span>
+        
+        // Verify it's a valid repository
+        <span class="cov8" title="1">headPath := filepath.Join(gitDir, "HEAD")
+        if _, err := os.Stat(headPath); err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("invalid git repository: missing HEAD")
+        }</span>
+        
+        <span class="cov8" title="1">storage := objects.NewStorage(gitDir)
+        
+        return &amp;Repository{
+                path:    path,
+                gitDir:  gitDir,
+                storage: storage,
+        }, nil</span>
+}
+
+// Path returns the repository path
+func (r *Repository) Path() string <span class="cov8" title="1">{
+        return r.path
+}</span>
+
+// GitDir returns the .git directory path
+func (r *Repository) GitDir() string <span class="cov8" title="1">{
+        return r.gitDir
+}</span>
+
+// WorkDir returns the working directory path
+func (r *Repository) WorkDir() string <span class="cov0" title="0">{
+        return r.path
+}</span>
+
+// GetObject reads an object from the repository (alias for ReadObject)
+func (r *Repository) GetObject(id objects.ObjectID) (objects.Object, error) <span class="cov0" title="0">{
+        return r.ReadObject(id)
+}</span>
+
+// GetCommit reads a commit object from the repository
+func (r *Repository) GetCommit(id objects.ObjectID) (*objects.Commit, error) <span class="cov0" title="0">{
+        obj, err := r.ReadObject(id)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        
+        <span class="cov0" title="0">commit, ok := obj.(*objects.Commit)
+        if !ok </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("object %s is not a commit", id)
+        }</span>
+        
+        <span class="cov0" title="0">return commit, nil</span>
+}
+
+// GetTree reads a tree object from the repository
+func (r *Repository) GetTree(id objects.ObjectID) (*objects.Tree, error) <span class="cov0" title="0">{
+        obj, err := r.ReadObject(id)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        
+        <span class="cov0" title="0">tree, ok := obj.(*objects.Tree)
+        if !ok </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("object %s is not a tree", id)
+        }</span>
+        
+        <span class="cov0" title="0">return tree, nil</span>
+}
+
+// GetBlob reads a blob object from the repository
+func (r *Repository) GetBlob(id objects.ObjectID) (*objects.Blob, error) <span class="cov0" title="0">{
+        obj, err := r.ReadObject(id)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        
+        <span class="cov0" title="0">blob, ok := obj.(*objects.Blob)
+        if !ok </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("object %s is not a blob", id)
+        }</span>
+        
+        <span class="cov0" title="0">return blob, nil</span>
+}
+
+// HashObject hashes data and optionally writes it to the object store
+func (r *Repository) HashObject(data []byte, objType objects.ObjectType, write bool) (objects.ObjectID, error) <span class="cov8" title="1">{
+        var obj objects.Object
+        
+        switch objType </span>{
+        case objects.TypeBlob:<span class="cov8" title="1">
+                obj = objects.NewBlob(data)</span>
+        default:<span class="cov8" title="1">
+                return objects.ObjectID{}, fmt.Errorf("unsupported object type for hash-object: %s", objType)</span>
+        }
+        
+        <span class="cov8" title="1">if write </span><span class="cov8" title="1">{
+                if err := r.storage.WriteObject(obj); err != nil </span><span class="cov0" title="0">{
+                        return objects.ObjectID{}, err
+                }</span>
+        }
+        
+        <span class="cov8" title="1">return obj.ID(), nil</span>
+}
+
+// HashObjectFromReader hashes data from a reader
+func (r *Repository) HashObjectFromReader(reader io.Reader, objType objects.ObjectType, write bool) (objects.ObjectID, error) <span class="cov8" title="1">{
+        data, err := io.ReadAll(reader)
+        if err != nil </span><span class="cov0" title="0">{
+                return objects.ObjectID{}, fmt.Errorf("failed to read data: %w", err)
+        }</span>
+        
+        <span class="cov8" title="1">return r.HashObject(data, objType, write)</span>
+}
+
+// HashData computes the hash of data without writing it to the object store
+func (r *Repository) HashData(data []byte) objects.ObjectID <span class="cov0" title="0">{
+        return objects.ComputeHash(objects.TypeBlob, data)
+}</span>
+
+// CreateBlobDirect creates a blob and writes it to storage immediately
+func (r *Repository) CreateBlobDirect(data []byte) *objects.Blob <span class="cov0" title="0">{
+        blob := objects.NewBlob(data)
+        r.WriteObject(blob)
+        return blob
+}</span>
+
+// ReadObject reads an object from the repository
+func (r *Repository) ReadObject(id objects.ObjectID) (objects.Object, error) <span class="cov8" title="1">{
+        return r.storage.ReadObject(id)
+}</span>
+
+// WriteObject writes an object to the repository
+func (r *Repository) WriteObject(obj objects.Object) error <span class="cov8" title="1">{
+        return r.storage.WriteObject(obj)
+}</span>
+
+// HasObject checks if an object exists in the repository
+func (r *Repository) HasObject(id objects.ObjectID) bool <span class="cov8" title="1">{
+        return r.storage.HasObject(id)
+}</span>
+
+// CreateBlob creates a blob from data
+func (r *Repository) CreateBlob(data []byte) (*objects.Blob, error) <span class="cov8" title="1">{
+        blob := objects.NewBlob(data)
+        if err := r.WriteObject(blob); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">return blob, nil</span>
+}
+
+// CreateTree creates a tree object
+func (r *Repository) CreateTree(entries []objects.TreeEntry) (*objects.Tree, error) <span class="cov8" title="1">{
+        tree := objects.NewTree()
+        
+        for _, entry := range entries </span><span class="cov8" title="1">{
+                if err := tree.AddEntry(entry.Mode, entry.Name, entry.ID); err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+        }
+        
+        <span class="cov8" title="1">if err := r.WriteObject(tree); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        
+        <span class="cov8" title="1">return tree, nil</span>
+}
+
+// CreateCommit creates a commit object
+func (r *Repository) CreateCommit(tree objects.ObjectID, parents []objects.ObjectID, author, committer objects.Signature, message string) (*objects.Commit, error) <span class="cov8" title="1">{
+        commit := objects.NewCommit(tree, parents, author, committer, message)
+        
+        if err := r.WriteObject(commit); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        
+        <span class="cov8" title="1">return commit, nil</span>
+}
+
+// CreateTag creates a tag object
+func (r *Repository) CreateTag(object objects.ObjectID, objType objects.ObjectType, tag string, tagger objects.Signature, message string) (*objects.Tag, error) <span class="cov8" title="1">{
+        tagObj := objects.NewTag(object, objType, tag, tagger, message)
+        
+        if err := r.WriteObject(tagObj); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        
+        <span class="cov8" title="1">return tagObj, nil</span>
+}</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

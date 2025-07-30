@@ -30,6 +30,11 @@ func (id ObjectID) IsZero() bool {
 	return true
 }
 
+// Equal returns true if two ObjectIDs are equal
+func (id ObjectID) Equal(other ObjectID) bool {
+	return id == other
+}
+
 // NewObjectID creates an ObjectID from a hexadecimal string
 func NewObjectID(hexStr string) (ObjectID, error) {
 	var id ObjectID

@@ -25,8 +25,20 @@ It provides optimized performance for large repositories and seamless GitHub int
 	// Add commands
 	rootCmd.AddCommand(
 		newInitCommand(),
+		newCloneCommand(),
 		newHashObjectCommand(),
 		newCatFileCommand(),
+		newStatusCommand(),
+		newAddCommand(),
+		newCommitCommand(),
+		newLogCommand(),
+		newBranchCommand(),
+		newCheckoutCommand(),
+		newDiffCommand(),
+		newMergeCommand(),
+		newResetCommand(),
+		newTagCommand(),
+		newRemoteCommand(),
 	)
 
 	if err := rootCmd.Execute(); err != nil {

@@ -111,6 +111,61 @@ func (r *Repository) GitDir() string {
 	return r.gitDir
 }
 
+// WorkDir returns the working directory path
+func (r *Repository) WorkDir() string {
+	return r.path
+}
+
+// GetObject reads an object from the repository (alias for ReadObject)
+func (r *Repository) GetObject(id objects.ObjectID) (objects.Object, error) {
+	return r.ReadObject(id)
+}
+
+// GetCommit reads a commit object from the repository
+func (r *Repository) GetCommit(id objects.ObjectID) (*objects.Commit, error) {
+	obj, err := r.ReadObject(id)
+	if err != nil {
+		return nil, err
+	}
+	
+	commit, ok := obj.(*objects.Commit)
+	if !ok {
+		return nil, fmt.Errorf("object %s is not a commit", id)
+	}
+	
+	return commit, nil
+}
+
+// GetTree reads a tree object from the repository
+func (r *Repository) GetTree(id objects.ObjectID) (*objects.Tree, error) {
+	obj, err := r.ReadObject(id)
+	if err != nil {
+		return nil, err
+	}
+	
+	tree, ok := obj.(*objects.Tree)
+	if !ok {
+		return nil, fmt.Errorf("object %s is not a tree", id)
+	}
+	
+	return tree, nil
+}
+
+// GetBlob reads a blob object from the repository
+func (r *Repository) GetBlob(id objects.ObjectID) (*objects.Blob, error) {
+	obj, err := r.ReadObject(id)
+	if err != nil {
+		return nil, err
+	}
+	
+	blob, ok := obj.(*objects.Blob)
+	if !ok {
+		return nil, fmt.Errorf("object %s is not a blob", id)
+	}
+	
+	return blob, nil
+}
+
 // HashObject hashes data and optionally writes it to the object store
 func (r *Repository) HashObject(data []byte, objType objects.ObjectType, write bool) (objects.ObjectID, error) {
 	var obj objects.Object
@@ -139,6 +194,18 @@ func (r *Repository) HashObjectFromReader(reader io.Reader, objType objects.Obje
 	}
 	
 	return r.HashObject(data, objType, write)
+}
+
+// HashData computes the hash of data without writing it to the object store
+func (r *Repository) HashData(data []byte) objects.ObjectID {
+	return objects.ComputeHash(objects.TypeBlob, data)
+}
+
+// CreateBlobDirect creates a blob and writes it to storage immediately
+func (r *Repository) CreateBlobDirect(data []byte) *objects.Blob {
+	blob := objects.NewBlob(data)
+	r.WriteObject(blob)
+	return blob
 }
 
 // ReadObject reads an object from the repository

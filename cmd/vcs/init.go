@@ -36,9 +36,9 @@ func newInitCommand() *cobra.Command {
 			
 			// Print success message
 			if bare {
-				fmt.Printf("Initialized empty VCS repository in %s\n", repo.GitDir())
+				fmt.Fprintf(cmd.OutOrStdout(), "Initialized empty VCS repository in %s\n", repo.GitDir())
 			} else {
-				fmt.Printf("Initialized empty VCS repository in %s\n", filepath.Join(repo.GitDir()))
+				fmt.Fprintf(cmd.OutOrStdout(), "Initialized empty VCS repository in %s\n", filepath.Join(repo.GitDir()))
 			}
 			
 			return nil

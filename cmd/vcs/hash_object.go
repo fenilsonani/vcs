@@ -43,7 +43,7 @@ func newHashObjectCommand() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				fmt.Println(id)
+				fmt.Fprintln(cmd.OutOrStdout(), id)
 			} else {
 				// Process each file
 				for _, path := range args {
@@ -59,7 +59,7 @@ func newHashObjectCommand() *cobra.Command {
 						return fmt.Errorf("failed to hash %s: %w", path, err)
 					}
 					
-					fmt.Println(id)
+					fmt.Fprintln(cmd.OutOrStdout(), id)
 				}
 			}
 			

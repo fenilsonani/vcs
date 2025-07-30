@@ -1,21 +1,11 @@
 package main
 
 import (
-	"bytes"
-	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
 func TestInitCommand(t *testing.T) {
-	// Create temp directory
-	tmpDir, err := os.MkdirTemp("", "vcs-cmd-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
-
 	tests := []struct {
 		name    string
 		args    []string
@@ -28,50 +18,47 @@ func TestInitCommand(t *testing.T) {
 		},
 		{
 			name:    "init specified directory",
-			args:    []string{filepath.Join(tmpDir, "repo")},
+			args:    []string{"new-repo"},
 			wantErr: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := newInitCommand()
+			helper := NewTestHelper(t)
+			defer helper.Cleanup()
 			
-			// Change to temp directory if no args
+			// For current directory test, change to temp dir
 			if len(tt.args) == 0 {
-				oldDir, _ := os.Getwd()
-				os.Chdir(tmpDir)
-				defer os.Chdir(oldDir)
+				helper.ChDir()
+			} else {
+				// For specified directory, make it relative to temp dir
+				tt.args[0] = filepath.Join(helper.TmpDir(), tt.args[0])
 			}
+
+			cmd := newInitCommand()
+			result := helper.RunCommand(cmd, tt.args, nil)
 			
-			err := cmd.RunE(cmd, tt.args)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("RunE() error = %v, wantErr %v", err, tt.wantErr)
+			result.AssertError(t, tt.wantErr)
+			if !tt.wantErr {
+				result.AssertContains(t, "Initialized empty VCS repository")
 			}
 		})
 	}
 }
 
 func TestHashObjectCommand(t *testing.T) {
-	// Create temp repository
-	tmpDir, err := os.MkdirTemp("", "vcs-cmd-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
-
+	helper := NewTestHelper(t)
+	defer helper.Cleanup()
+	
 	// Initialize repository
+	helper.ChDir()
 	initCmd := newInitCommand()
-	initCmd.RunE(initCmd, []string{tmpDir})
+	initResult := helper.RunCommand(initCmd, []string{}, nil)
+	initResult.AssertError(t, false)
 
 	// Create test file
-	testFile := filepath.Join(tmpDir, "test.txt")
-	os.WriteFile(testFile, []byte("test content"), 0644)
-
-	// Change to repo directory
-	oldDir, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(oldDir)
+	helper.CreateFile("test.txt", "test content")
 
 	tests := []struct {
 		name    string
@@ -79,156 +66,154 @@ func TestHashObjectCommand(t *testing.T) {
 		stdin   string
 		flags   map[string]string
 		wantErr bool
+		wantOut bool
 	}{
 		{
 			name:    "hash file",
 			args:    []string{"test.txt"},
 			wantErr: false,
+			wantOut: true, // Should output hash
 		},
 		{
 			name:    "hash stdin",
 			stdin:   "stdin content",
 			flags:   map[string]string{"stdin": "true"},
 			wantErr: false,
+			wantOut: true,
 		},
 		{
 			name:    "hash and write",
 			args:    []string{"test.txt"},
 			flags:   map[string]string{"write": "true"},
 			wantErr: false,
+			wantOut: true,
 		},
 		{
 			name:    "unsupported type",
 			args:    []string{"test.txt"},
 			flags:   map[string]string{"type": "tree"},
 			wantErr: true,
+			wantOut: false,
+		},
+		{
+			name:    "nonexistent file",
+			args:    []string{"nonexistent.txt"},
+			wantErr: true,
+			wantOut: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := newHashObjectCommand()
-			
-			// Set flags
-			for key, value := range tt.flags {
-				cmd.Flags().Set(key, value)
-			}
-			
 			// Set stdin if provided
 			if tt.stdin != "" {
-				oldStdin := os.Stdin
-				r, w, _ := os.Pipe()
-				os.Stdin = r
-				w.WriteString(tt.stdin)
-				w.Close()
-				defer func() { os.Stdin = oldStdin }()
+				helper.SetStdin(tt.stdin)
 			}
+
+			cmd := newHashObjectCommand()
+			result := helper.RunCommand(cmd, tt.args, tt.flags)
 			
-			// Capture output
-			var buf bytes.Buffer
-			cmd.SetOut(&buf)
-			
-			err := cmd.RunE(cmd, tt.args)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("RunE() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			
-			if !tt.wantErr && buf.Len() == 0 {
-				t.Error("Expected output but got none")
+			result.AssertError(t, tt.wantErr)
+			if tt.wantOut && !tt.wantErr {
+				if !result.HasOutput() {
+					t.Error("Expected output but got none")
+				}
 			}
 		})
 	}
 }
 
 func TestCatFileCommand(t *testing.T) {
-	// Create temp repository
-	tmpDir, err := os.MkdirTemp("", "vcs-cmd-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
-
+	helper := NewTestHelper(t)
+	defer helper.Cleanup()
+	
 	// Initialize repository
+	helper.ChDir()
 	initCmd := newInitCommand()
-	initCmd.RunE(initCmd, []string{tmpDir})
+	initResult := helper.RunCommand(initCmd, []string{}, nil)
+	initResult.AssertError(t, false)
 
-	// Change to repo directory
-	oldDir, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(oldDir)
-
-	// Create and hash an object
+	// Create and hash an object to get a valid object ID
+	helper.CreateFile("test.txt", "test content")
+	
 	hashCmd := newHashObjectCommand()
-	hashCmd.Flags().Set("write", "true")
-	hashCmd.Flags().Set("stdin", "true")
+	hashResult := helper.RunCommand(hashCmd, []string{"test.txt"}, map[string]string{"write": "true"})
+	hashResult.AssertError(t, false)
 	
-	oldStdin := os.Stdin
-	r, w, _ := os.Pipe()
-	os.Stdin = r
-	w.WriteString("test content")
-	w.Close()
-	
-	var hashBuf bytes.Buffer
-	hashCmd.SetOut(&hashBuf)
-	hashCmd.RunE(hashCmd, []string{})
-	os.Stdin = oldStdin
-	
-	objectID := strings.TrimSpace(hashBuf.String())
+	objectID := hashResult.Output
+	if objectID == "" {
+		t.Fatal("No object ID returned from hash-object")
+	}
+	objectID = objectID[:40] // Take first 40 chars (SHA-1 hash length)
 
 	tests := []struct {
-		name    string
-		args    []string
-		flags   map[string]string
-		wantErr bool
+		name      string
+		args      []string
+		flags     map[string]string
+		wantErr   bool
+		wantOut   bool
+		wantEmpty bool
 	}{
 		{
 			name:    "show type",
 			args:    []string{objectID},
 			flags:   map[string]string{"type": "true"},
 			wantErr: false,
+			wantOut: true,
 		},
 		{
 			name:    "show size",
 			args:    []string{objectID},
 			flags:   map[string]string{"size": "true"},
 			wantErr: false,
+			wantOut: true,
 		},
 		{
 			name:    "show content",
 			args:    []string{objectID},
 			flags:   map[string]string{"pretty-print": "true"},
 			wantErr: false,
+			wantOut: true,
 		},
 		{
-			name:    "invalid object",
-			args:    []string{"0000000000000000000000000000000000000000"},
-			flags:   map[string]string{"type": "true"},
-			wantErr: true,
+			name:      "invalid object",
+			args:      []string{"0000000000000000000000000000000000000000"},
+			flags:     map[string]string{"type": "true"},
+			wantErr:   true,
+			wantEmpty: true,
 		},
 		{
-			name:    "no flags",
-			args:    []string{objectID},
-			wantErr: true,
+			name:      "no flags",
+			args:      []string{objectID},
+			wantErr:   true,
+			wantEmpty: true,
+		},
+		{
+			name:      "missing object ID",
+			args:      []string{},
+			flags:     map[string]string{"type": "true"},
+			wantErr:   true,
+			wantEmpty: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := newCatFileCommand()
+			result := helper.RunCommand(cmd, tt.args, tt.flags)
 			
-			// Set flags
-			for key, value := range tt.flags {
-				cmd.Flags().Set(key, value)
+			result.AssertError(t, tt.wantErr)
+			
+			if tt.wantOut && !tt.wantErr {
+				if !result.HasOutput() {
+					t.Error("Expected output but got none")
+				}
 			}
 			
-			// Capture output
-			var buf bytes.Buffer
-			cmd.SetOut(&buf)
-			
-			err := cmd.RunE(cmd, tt.args)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("RunE() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantEmpty && !result.HasOutput() {
+				// This is expected for error cases
 			}
 		})
 	}
 }
+

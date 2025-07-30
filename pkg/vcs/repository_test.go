@@ -512,3 +512,226 @@ func TestRepository_WriteAndReadObject(t *testing.T) {
 		t.Errorf("Read data = %v, want %v", readBlob.Data(), blob.Data())
 	}
 }
+
+func TestRepository_HashData(t *testing.T) {
+	// Create temp repository
+	tmpDir, err := os.MkdirTemp("", "vcs-repo-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	repo, err := Init(tmpDir)
+	if err != nil {
+		t.Fatalf("Init() error = %v", err)
+	}
+
+	data := []byte("test hash data")
+	hash := repo.HashData(data)
+
+	if hash.IsZero() {
+		t.Error("HashData() returned zero ID")
+	}
+
+	// Verify it matches the expected hash
+	expected := objects.ComputeHash(objects.TypeBlob, data)
+	if !hash.Equal(expected) {
+		t.Errorf("HashData() = %v, want %v", hash, expected)
+	}
+}
+
+func TestRepository_CreateBlobDirect(t *testing.T) {
+	// Create temp repository
+	tmpDir, err := os.MkdirTemp("", "vcs-repo-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	repo, err := Init(tmpDir)
+	if err != nil {
+		t.Fatalf("Init() error = %v", err)
+	}
+
+	data := []byte("direct blob data")
+	blob := repo.CreateBlobDirect(data)
+
+	if blob == nil {
+		t.Fatal("CreateBlobDirect() returned nil")
+	}
+
+	if !bytes.Equal(blob.Data(), data) {
+		t.Errorf("Blob data = %v, want %v", blob.Data(), data)
+	}
+
+	// Verify it was automatically stored
+	if !repo.HasObject(blob.ID()) {
+		t.Error("CreateBlobDirect() did not store blob")
+	}
+}
+
+func TestRepository_GetMethods(t *testing.T) {
+	// Create temp repository
+	tmpDir, err := os.MkdirTemp("", "vcs-repo-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	repo, err := Init(tmpDir)
+	if err != nil {
+		t.Fatalf("Init() error = %v", err)
+	}
+
+	// Test GetObject (alias for ReadObject)
+	blob := repo.CreateBlobDirect([]byte("test blob"))
+	obj, err := repo.GetObject(blob.ID())
+	if err != nil {
+		t.Fatalf("GetObject() error = %v", err)
+	}
+	if obj.ID() != blob.ID() {
+		t.Errorf("GetObject() returned wrong object")
+	}
+
+	// Test GetBlob
+	getBlob, err := repo.GetBlob(blob.ID())
+	if err != nil {
+		t.Fatalf("GetBlob() error = %v", err)
+	}
+	if !bytes.Equal(getBlob.Data(), blob.Data()) {
+		t.Errorf("GetBlob() returned different data")
+	}
+
+	// Test GetCommit
+	tree, _ := repo.CreateTree([]objects.TreeEntry{})
+	commit, _ := repo.CreateCommit(tree.ID(), nil, objects.Signature{
+		Name: "Test", Email: "test@example.com", When: time.Now(),
+	}, objects.Signature{
+		Name: "Test", Email: "test@example.com", When: time.Now(),
+	}, "Test commit")
+
+	getCommit, err := repo.GetCommit(commit.ID())
+	if err != nil {
+		t.Fatalf("GetCommit() error = %v", err)
+	}
+	if getCommit.ID() != commit.ID() {
+		t.Errorf("GetCommit() returned wrong commit")
+	}
+
+	// Test GetTree
+	getTree, err := repo.GetTree(tree.ID())
+	if err != nil {
+		t.Fatalf("GetTree() error = %v", err)
+	}
+	if getTree.ID() != tree.ID() {
+		t.Errorf("GetTree() returned wrong tree")
+	}
+}
+
+func TestRepository_GetMethods_WrongType(t *testing.T) {
+	// Create temp repository
+	tmpDir, err := os.MkdirTemp("", "vcs-repo-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	repo, err := Init(tmpDir)
+	if err != nil {
+		t.Fatalf("Init() error = %v", err)
+	}
+
+	// Create a blob
+	blob := repo.CreateBlobDirect([]byte("test blob"))
+
+	// Try to get as commit (should fail)
+	_, err = repo.GetCommit(blob.ID())
+	if err == nil {
+		t.Error("GetCommit() should fail for blob object")
+	}
+	if !strings.Contains(err.Error(), "not a commit") {
+		t.Errorf("GetCommit() error = %v, want 'not a commit'", err)
+	}
+
+	// Try to get as tree (should fail)
+	_, err = repo.GetTree(blob.ID())
+	if err == nil {
+		t.Error("GetTree() should fail for blob object")
+	}
+	if !strings.Contains(err.Error(), "not a tree") {
+		t.Errorf("GetTree() error = %v, want 'not a tree'", err)
+	}
+
+	// Try to get as blob from non-blob (create tree)
+	tree, _ := repo.CreateTree([]objects.TreeEntry{})
+	_, err = repo.GetBlob(tree.ID())
+	if err == nil {
+		t.Error("GetBlob() should fail for tree object")
+	}
+	if !strings.Contains(err.Error(), "not a blob") {
+		t.Errorf("GetBlob() error = %v, want 'not a blob'", err)
+	}
+}
+
+func TestRepository_WorkDir(t *testing.T) {
+	// Create temp repository
+	tmpDir, err := os.MkdirTemp("", "vcs-repo-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	repo, err := Init(tmpDir)
+	if err != nil {
+		t.Fatalf("Init() error = %v", err)
+	}
+
+	if repo.WorkDir() != tmpDir {
+		t.Errorf("WorkDir() = %v, want %v", repo.WorkDir(), tmpDir)
+	}
+}
+
+func TestRepository_ReadObject_NotFound(t *testing.T) {
+	// Create temp repository
+	tmpDir, err := os.MkdirTemp("", "vcs-repo-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	repo, err := Init(tmpDir)
+	if err != nil {
+		t.Fatalf("Init() error = %v", err)
+	}
+
+	// Try to read non-existent object
+	fakeID := objects.ComputeHash(objects.TypeBlob, []byte("nonexistent"))
+	_, err = repo.ReadObject(fakeID)
+	if err == nil {
+		t.Error("ReadObject() should fail for non-existent object")
+	}
+}
+
+func TestRepository_CreateTree_InvalidEntry(t *testing.T) {
+	// Create temp repository
+	tmpDir, err := os.MkdirTemp("", "vcs-repo-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	repo, err := Init(tmpDir)
+	if err != nil {
+		t.Fatalf("Init() error = %v", err)
+	}
+
+	// Try to create tree with invalid entry (empty name)
+	entries := []objects.TreeEntry{
+		{Mode: objects.ModeBlob, Name: "", ID: objects.ComputeHash(objects.TypeBlob, []byte("test"))},
+	}
+
+	_, err = repo.CreateTree(entries)
+	if err == nil {
+		t.Error("CreateTree() should fail for invalid entry")
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -419,5 +420,113 @@ func TestIndex_FileOperations(t *testing.T) {
 	// Test non-existent file
 	if err := idx2.ReadFromFile("/nonexistent/path/index"); err == nil {
 		t.Error("ReadFromFile() should return error for non-existent file")
+	}
+}
+
+func TestIndex_EdgeCases(t *testing.T) {
+	idx := New()
+
+	// Test with empty path (should fail)
+	emptyEntry := &Entry{
+		Path: "",
+		Mode: objects.ModeBlob,
+		ID:   objects.ObjectID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20},
+	}
+	if err := idx.Add(emptyEntry); err == nil {
+		t.Error("Add() with empty path should fail")
+	}
+
+	// Test Get with non-existent path
+	_, exists := idx.Get("nonexistent.txt")
+	if exists {
+		t.Error("Get() should return false for non-existent path")
+	}
+
+	// Test Remove with non-existent path
+	err := idx.Remove("nonexistent.txt")
+	if err == nil {
+		t.Error("Remove() should return error for non-existent path")
+	}
+
+	// Test Clear
+	idx.Clear()
+	if len(idx.entries) != 0 {
+		t.Errorf("Clear() left %d entries, want 0", len(idx.entries))
+	}
+}
+
+func TestIndex_DuplicateEntries(t *testing.T) {
+	idx := New()
+
+	// Add entry
+	entry1 := &Entry{
+		Path: "duplicate.txt",
+		Mode: objects.ModeBlob,
+		ID:   objects.ObjectID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20},
+		Size: 100,
+	}
+	if err := idx.Add(entry1); err != nil {
+		t.Fatalf("Add() error = %v", err)
+	}
+
+	// Add same path again with different data
+	entry2 := &Entry{
+		Path: "duplicate.txt",
+		Mode: objects.ModeExec,
+		ID:   objects.ObjectID{2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21},
+		Size: 200,
+	}
+	if err := idx.Add(entry2); err != nil {
+		t.Fatalf("Add() error = %v", err)
+	}
+
+	// Should only have one entry (updated)
+	if len(idx.entries) != 1 {
+		t.Errorf("entries length = %v, want 1", len(idx.entries))
+	}
+
+	// Should have updated data
+	got, exists := idx.Get("duplicate.txt")
+	if !exists {
+		t.Fatal("Get() returned false for existing entry")
+	}
+	if got.Mode != objects.ModeExec {
+		t.Errorf("Mode = %v, want %v", got.Mode, objects.ModeExec)
+	}
+	if got.Size != 200 {
+		t.Errorf("Size = %v, want 200", got.Size)
+	}
+}
+
+func TestIndex_InvalidData(t *testing.T) {
+	idx := New()
+
+	tests := []struct {
+		name    string
+		data    []byte
+		wantErr string
+	}{
+		{
+			name:    "truncated header",
+			data:    []byte("DIRC\x00\x00\x00\x02"),
+			wantErr: "failed to read header",
+		},
+		{
+			name:    "unsupported version 5",
+			data:    []byte("DIRC\x00\x00\x00\x05\x00\x00\x00\x00"),
+			wantErr: "unsupported index version",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := idx.ReadFrom(bytes.NewReader(tt.data))
+			if err == nil {
+				t.Fatal("ReadFrom() should return error")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("ReadFrom() error = %v, want error containing %q", err, tt.wantErr)
+			}
+		})
 	}
 }
