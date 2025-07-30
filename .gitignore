@@ -1,0 +1,26 @@
+# Build artifacts
+build/
+dist/
+
+# Test artifacts
+coverage.out
+coverage.html
+*.prof
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*~
+
+# Go module cache
+go.sum
