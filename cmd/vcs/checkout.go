@@ -55,7 +55,7 @@ func runCheckout(cmd *cobra.Command, args []string) error {
 
 	// Handle branch creation
 	if createBranch {
-		return createAndCheckoutBranch(repo, refManager, target, force)
+		return createAndCheckoutBranch(cmd, repo, refManager, target, force)
 	}
 
 	// Check if target is a branch or commit
@@ -105,12 +105,12 @@ func runCheckout(cmd *cobra.Command, args []string) error {
 		if err := refManager.SetHEAD("refs/heads/" + target); err != nil {
 			return fmt.Errorf("failed to update HEAD: %w", err)
 		}
-		fmt.Printf("Switched to branch '%s'\n", target)
+		fmt.Fprintf(cmd.OutOrStdout(), "Switched to branch '%s'\n", target)
 	} else {
 		if err := refManager.SetHEADToCommit(targetCommitID); err != nil {
 			return fmt.Errorf("failed to update HEAD: %w", err)
 		}
-		fmt.Printf("HEAD is now at %s\n", targetCommitID.String()[:7])
+		fmt.Fprintf(cmd.OutOrStdout(), "HEAD is now at %s\n", targetCommitID.String()[:7])
 	}
 
 	// Clear index (for simplicity)
@@ -123,7 +123,7 @@ func runCheckout(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func createAndCheckoutBranch(repo *vcs.Repository, refManager *refs.RefManager, branchName string, force bool) error {
+func createAndCheckoutBranch(cmd *cobra.Command, repo *vcs.Repository, refManager *refs.RefManager, branchName string, force bool) error {
 	// Validate branch name
 	if !refManager.IsValidRef("refs/heads/"+branchName) {
 		return fmt.Errorf("invalid branch name: %s", branchName)
@@ -150,7 +150,7 @@ func createAndCheckoutBranch(repo *vcs.Repository, refManager *refs.RefManager, 
 		return fmt.Errorf("failed to switch to new branch: %w", err)
 	}
 
-	fmt.Printf("Switched to a new branch '%s'\n", branchName)
+	fmt.Fprintf(cmd.OutOrStdout(), "Switched to a new branch '%s'\n", branchName)
 	return nil
 }
 

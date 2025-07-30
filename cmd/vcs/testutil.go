@@ -122,8 +122,11 @@ func (h *TestHelper) RunCommand(cmd *cobra.Command, args []string, flags map[str
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
 
-	// Run the command
-	err := cmd.RunE(cmd, args)
+	// Set the args on the command
+	cmd.SetArgs(args)
+	
+	// Run the command with proper validation
+	err := cmd.Execute()
 
 	// Reset output streams
 	cmd.SetOut(nil)

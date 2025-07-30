@@ -191,6 +191,7 @@ func TestCatFileCommand(t *testing.T) {
 		{
 			name:      "missing object ID",
 			args:      []string{},
+			flags:     map[string]string{"type": "true"},
 			wantErr:   true,
 			wantEmpty: true,
 		},

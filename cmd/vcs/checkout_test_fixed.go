@@ -1,10 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -14,7 +12,7 @@ import (
 	"github.com/fenilsonani/vcs/pkg/vcs"
 )
 
-func TestNewCheckoutCommand(t *testing.T) {
+func TestNewCheckoutCommand_Fixed(t *testing.T) {
 	cmd := newCheckoutCommand()
 	
 	if cmd.Use != "checkout [flags] <branch|commit>" {
@@ -34,24 +32,16 @@ func TestNewCheckoutCommand(t *testing.T) {
 	}
 }
 
-func TestRunCheckout(t *testing.T) {
-	// Create temp directory for test repo
-	tmpDir, err := os.MkdirTemp("", "checkout-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+func TestRunCheckout_Fixed(t *testing.T) {
+	helper := NewTestHelper(t)
+	defer helper.Cleanup()
 
 	// Initialize repository
-	repo, err := vcs.Init(tmpDir)
+	helper.ChDir()
+	repo, err := vcs.Init(helper.TmpDir())
 	if err != nil {
 		t.Fatalf("Failed to init repo: %v", err)
 	}
-
-	// Change to repo directory
-	oldDir, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(oldDir)
 
 	refManager := refs.NewRefManager(repo.GitDir())
 
@@ -99,9 +89,9 @@ func TestRunCheckout(t *testing.T) {
 		checkBranch  string
 	}{
 		{
-			name:  "no arguments",
-			setup: setupRepo,
-			args:  []string{},
+			name:    "no arguments",
+			setup:   setupRepo,
+			args:    []string{},
 			wantErr: true,
 		},
 		{
@@ -130,16 +120,16 @@ func TestRunCheckout(t *testing.T) {
 			checkBranch:  "newbranch",
 		},
 		{
-			name:         "checkout nonexistent branch",
-			setup:        setupRepo,
-			args:         []string{"nonexistent"},
-			wantErr:      true,
+			name:    "checkout nonexistent branch",
+			setup:   setupRepo,
+			args:    []string{"nonexistent"},
+			wantErr: true,
 		},
 		{
-			name:         "checkout invalid commit",
-			setup:        setupRepo,
-			args:         []string{"invalidcommit"},
-			wantErr:      true,
+			name:    "checkout invalid commit",
+			setup:   setupRepo,
+			args:    []string{"invalidcommit"},
+			wantErr: true,
 		},
 	}
 
@@ -162,35 +152,17 @@ func TestRunCheckout(t *testing.T) {
 				args = []string{commit1ID.String()}
 			}
 
-			// Create command
+			// Create command and run using TestHelper
 			cmd := newCheckoutCommand()
-			
-			// Set flags
-			for key, value := range tt.flags {
-				cmd.Flags().Set(key, value)
-			}
-
-			// Capture output
-			var buf bytes.Buffer
-			cmd.SetOut(&buf)
-			cmd.SetErr(&buf)
-
-			// Run command
-			err := cmd.RunE(cmd, args)
+			result := helper.RunCommand(cmd, args, tt.flags)
 			
 			// Check error expectation
-			if (err != nil) != tt.wantErr {
-				t.Errorf("RunE() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
+			result.AssertError(t, tt.wantErr)
 
 			if !tt.wantErr {
 				// Check output contains expected strings
-				output := buf.String()
 				for _, want := range tt.wantContains {
-					if !strings.Contains(output, want) {
-						t.Errorf("Output missing expected string %q\nGot: %s", want, output)
-					}
+					result.AssertContains(t, want)
 				}
 
 				// Check current branch
@@ -207,16 +179,13 @@ func TestRunCheckout(t *testing.T) {
 	}
 }
 
-func TestCreateAndCheckoutBranch(t *testing.T) {
-	// Create temp directory for test repo
-	tmpDir, err := os.MkdirTemp("", "create-checkout-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+func TestCreateAndCheckoutBranch_Fixed(t *testing.T) {
+	helper := NewTestHelper(t)
+	defer helper.Cleanup()
 
 	// Initialize repository
-	repo, err := vcs.Init(tmpDir)
+	helper.ChDir()
+	repo, err := vcs.Init(helper.TmpDir())
 	if err != nil {
 		t.Fatalf("Failed to init repo: %v", err)
 	}
@@ -243,12 +212,14 @@ func TestCreateAndCheckoutBranch(t *testing.T) {
 		branchName string
 		force      bool
 		wantErr    bool
+		wantOut    []string
 	}{
 		{
 			name:       "create valid branch",
 			branchName: "newbranch",
 			force:      false,
 			wantErr:    false,
+			wantOut:    []string{"Switched to a new branch 'newbranch'"},
 		},
 		{
 			name:       "create existing branch without force",
@@ -261,6 +232,7 @@ func TestCreateAndCheckoutBranch(t *testing.T) {
 			branchName: "main",
 			force:      true,
 			wantErr:    false,
+			wantOut:    []string{"Switched to a new branch 'main'"},
 		},
 		{
 			name:       "invalid branch name",
@@ -273,14 +245,21 @@ func TestCreateAndCheckoutBranch(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := newCheckoutCommand()
-			err := createAndCheckoutBranch(cmd, repo, refManager, tt.branchName, tt.force)
 			
-			if (err != nil) != tt.wantErr {
-				t.Errorf("createAndCheckoutBranch() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
+			// Use TestHelper to capture output
+			result := helper.RunCommand(cmd, []string{tt.branchName}, map[string]string{
+				"create": "true",
+				"force":  func() string { if tt.force { return "true" }; return "false" }(),
+			})
+			
+			result.AssertError(t, tt.wantErr)
 
 			if !tt.wantErr {
+				// Check expected output
+				if len(tt.wantOut) > 0 {
+					result.AssertContains(t, tt.wantOut...)
+				}
+
 				// Check branch was created and checked out
 				if !refManager.RefExists(tt.branchName) {
 					t.Errorf("Branch %s was not created", tt.branchName)
@@ -297,16 +276,13 @@ func TestCreateAndCheckoutBranch(t *testing.T) {
 	}
 }
 
-func TestHasUncommittedChanges(t *testing.T) {
-	// Create temp directory for test repo
-	tmpDir, err := os.MkdirTemp("", "uncommitted-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+func TestHasUncommittedChanges_Fixed(t *testing.T) {
+	helper := NewTestHelper(t)
+	defer helper.Cleanup()
 
 	// Initialize repository
-	repo, err := vcs.Init(tmpDir)
+	helper.ChDir()
+	repo, err := vcs.Init(helper.TmpDir())
 	if err != nil {
 		t.Fatalf("Failed to init repo: %v", err)
 	}
@@ -382,16 +358,13 @@ func TestHasUncommittedChanges(t *testing.T) {
 	}
 }
 
-func TestExtractFile(t *testing.T) {
-	// Create temp directory for test repo
-	tmpDir, err := os.MkdirTemp("", "extract-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+func TestExtractFile_Fixed(t *testing.T) {
+	helper := NewTestHelper(t)
+	defer helper.Cleanup()
 
 	// Initialize repository
-	repo, err := vcs.Init(tmpDir)
+	helper.ChDir()
+	repo, err := vcs.Init(helper.TmpDir())
 	if err != nil {
 		t.Fatalf("Failed to init repo: %v", err)
 	}
@@ -431,10 +404,10 @@ func TestExtractFile(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Clean up any existing file
-			filePath := filepath.Join(tmpDir, tt.entry.Name)
+			filePath := filepath.Join(helper.TmpDir(), tt.entry.Name)
 			os.Remove(filePath)
 
-			err := extractFile(repo, tt.entry, tmpDir)
+			err := extractFile(repo, tt.entry, helper.TmpDir())
 			
 			if (err != nil) != tt.wantErr {
 				t.Errorf("extractFile() error = %v, wantErr %v", err, tt.wantErr)
@@ -461,8 +434,8 @@ func TestExtractFile(t *testing.T) {
 					return
 				}
 
-				if !bytes.Equal(readContent, content) {
-					t.Errorf("File content = %v, want %v", readContent, content)
+				if string(readContent) != string(content) {
+					t.Errorf("File content = %v, want %v", string(readContent), string(content))
 				}
 			}
 		})
