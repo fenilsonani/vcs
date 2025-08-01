@@ -115,23 +115,33 @@ vcs --version
 vcs --check-hardware
 ```
 
-### One-Line Install (macOS/Linux)
+### One-Line Install (Recommended)
 
 ```bash
-# Auto-detects your system and installs optimally
+# Downloads pre-built binary - no Go required!
 curl -fsSL https://raw.githubusercontent.com/fenilsonani/vcs/main/install.sh | bash
+
+# Verify installation
+vcs --version
+vcs --check-hardware
 ```
 
-### Build from Source
+### Manual Download
 
 ```bash
-# Requirements: Go 1.21+
+# Download directly from GitHub releases
+wget https://github.com/fenilsonani/vcs/releases/download/v1.0.0/vcs-darwin-arm64
+chmod +x vcs-darwin-arm64
+sudo mv vcs-darwin-arm64 /usr/local/bin/vcs
+```
+
+### Build from Source (Optional)
+
+```bash
+# Only needed for development or unsupported platforms
 git clone https://github.com/fenilsonani/vcs.git
 cd vcs
-make install
-
-# Or use Go directly
-go install github.com/fenilsonani/vcs/cmd/vcs@latest
+make install-go
 ```
 
 ### System Requirements
@@ -252,7 +262,7 @@ Run comprehensive benchmarks:
 
 ```bash
 # Quick benchmark
-make bench
+make bench-quick
 
 # Full performance suite
 make bench-full
@@ -262,6 +272,40 @@ make bench-hardware
 
 # Large repository simulation
 make bench-large-repos
+```
+
+## 🛠️ Troubleshooting
+
+### Installation Issues
+
+**"vcs: command not found" after installation:**
+```bash
+# Check if vcs is installed  
+which vcs
+ls /usr/local/bin/vcs
+
+# Re-run installation
+curl -fsSL https://raw.githubusercontent.com/fenilsonani/vcs/main/install.sh | bash
+```
+
+**"Permission denied" during installation:**
+```bash
+# The installer will automatically use sudo when needed
+# Just enter your password when prompted
+
+# Or install to user directory
+mkdir -p ~/.local/bin
+curl -L https://github.com/fenilsonani/vcs/releases/download/v1.0.0/vcs-darwin-arm64 -o ~/.local/bin/vcs
+chmod +x ~/.local/bin/vcs
+```
+
+**Download fails:**
+```bash
+# Check internet connection and try again
+curl -fsSL https://raw.githubusercontent.com/fenilsonani/vcs/main/install.sh | bash
+
+# Or download manually
+wget https://github.com/fenilsonani/vcs/releases/download/v1.0.0/vcs-darwin-arm64
 ```
 
 ## 🤝 Contributing

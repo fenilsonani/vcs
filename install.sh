@@ -3,7 +3,7 @@
 set -e
 
 # VCS Hyperdrive Installation Script
-# Supports macOS (Apple Silicon & Intel) and Linux
+# Downloads pre-built binaries - no Go required!
 
 VERSION="v1.0.0"
 REPO="fenilsonani/vcs"
@@ -48,28 +48,117 @@ esac
 
 echo -e "${YELLOW}🔍 Detected: $OS/$ARCH${NC}"
 
-# Check for Homebrew on macOS
+# Check for Homebrew on macOS (recommended)
 if [[ "$OS" == "darwin" ]] && command -v brew >/dev/null 2>&1; then
-    echo -e "${GREEN}✅ Homebrew detected! Using Homebrew installation...${NC}"
+    echo -e "${GREEN}✅ Homebrew detected! Installing via Homebrew...${NC}"
     echo ""
-    echo -e "${BLUE}Running: ${BOLD}brew tap fenilsonani/vcs${NC}"
-    echo -e "${BLUE}Running: ${BOLD}brew install vcs${NC}"
+    
+    # Check if tap already exists
+    if ! brew tap | grep -q "fenilsonani/vcs"; then
+        echo -e "${YELLOW}📥 Adding VCS Hyperdrive tap...${NC}"
+        brew tap fenilsonani/vcs
+    fi
+    
+    echo -e "${YELLOW}📦 Installing VCS Hyperdrive...${NC}"
+    brew install vcs
+    
+    echo -e "${GREEN}✅ Installation complete via Homebrew!${NC}"
     echo ""
-    echo -e "${YELLOW}Please run these commands manually:${NC}"
-    echo "  brew tap fenilsonani/vcs"
-    echo "  brew install vcs"
+    echo -e "${BLUE}Verify installation:${NC}"
+    echo "  vcs --version"
+    echo "  vcs --check-hardware"
     echo ""
-    echo -e "${GREEN}🎉 Homebrew installation recommended for macOS!${NC}"
     exit 0
 fi
 
-# Check if Go is available for building from source
-if command -v go >/dev/null 2>&1; then
-    echo -e "${GREEN}✅ Go detected - building from source${NC}"
+# Download pre-built binary
+echo -e "${YELLOW}📥 Downloading pre-built binary...${NC}"
+
+# Construct download URL
+BINARY_FILE="vcs-${OS}-${ARCH}"
+DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${BINARY_FILE}"
+
+# Create temporary directory
+TEMP_DIR=$(mktemp -d)
+cd "$TEMP_DIR"
+
+echo -e "${YELLOW}🌐 Downloading from: ${DOWNLOAD_URL}${NC}"
+
+# Download binary
+if command -v curl >/dev/null 2>&1; then
+    curl -fsSL "$DOWNLOAD_URL" -o "$BINARY_NAME" || {
+        echo -e "${RED}❌ Download failed. Building from source as fallback...${NC}"
+        build_from_source
+        exit 0
+    }
+elif command -v wget >/dev/null 2>&1; then
+    wget -q "$DOWNLOAD_URL" -O "$BINARY_NAME" || {
+        echo -e "${RED}❌ Download failed. Building from source as fallback...${NC}"
+        build_from_source
+        exit 0
+    }
+else
+    echo -e "${RED}❌ Neither curl nor wget found${NC}"
+    build_from_source
+    exit 0
+fi
+
+# Make binary executable
+chmod +x "$BINARY_NAME"
+
+# Determine installation directory
+if [[ -w "/usr/local/bin" ]]; then
+    INSTALL_DIR="/usr/local/bin"
+elif [[ -w "$HOME/.local/bin" ]]; then
+    INSTALL_DIR="$HOME/.local/bin"
+    mkdir -p "$INSTALL_DIR"
+else
+    INSTALL_DIR="/usr/local/bin"
+fi
+
+echo -e "${YELLOW}📦 Installing to $INSTALL_DIR...${NC}"
+
+# Install binary
+if [[ ! -w "$INSTALL_DIR" ]]; then
+    echo -e "${YELLOW}🔐 Installing with sudo (password may be required)...${NC}"
+    sudo mv "$BINARY_NAME" "$INSTALL_DIR/"
+else
+    mv "$BINARY_NAME" "$INSTALL_DIR/"
+fi
+
+# Check if directory is in PATH
+if [[ "$INSTALL_DIR" == "$HOME/.local/bin" ]] && [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+    echo ""
+    echo -e "${YELLOW}📝 Note: $HOME/.local/bin is not in your PATH${NC}"
+    echo -e "${BLUE}Add this to your shell profile:${NC}"
+    if [[ "$SHELL" == *"zsh"* ]]; then
+        echo "  echo 'export PATH=\$PATH:$HOME/.local/bin' >> ~/.zshrc"
+        echo "  source ~/.zshrc"
+    elif [[ "$SHELL" == *"bash"* ]]; then
+        echo "  echo 'export PATH=\$PATH:$HOME/.local/bin' >> ~/.bashrc"
+        echo "  source ~/.bashrc"
+    else
+        echo "  export PATH=\$PATH:$HOME/.local/bin"
+    fi
+    echo ""
+fi
+
+# Clean up
+cd /
+rm -rf "$TEMP_DIR"
+
+echo -e "${GREEN}✅ Installation complete!${NC}"
+
+# Fallback function to build from source
+build_from_source() {
+    echo -e "${YELLOW}🔨 Building from source (requires Go)...${NC}"
     
-    # Create temporary directory
-    TEMP_DIR=$(mktemp -d)
-    cd "$TEMP_DIR"
+    if ! command -v go >/dev/null 2>&1; then
+        echo -e "${RED}❌ Go not found${NC}"
+        echo -e "${YELLOW}Please install Go from https://golang.org/dl/${NC}"
+        echo -e "${YELLOW}Or use Homebrew on macOS: brew install go${NC}"
+        exit 1
+    fi
     
     echo -e "${YELLOW}📥 Cloning repository...${NC}"
     git clone "https://github.com/$REPO.git" vcs
@@ -78,33 +167,13 @@ if command -v go >/dev/null 2>&1; then
     echo -e "${YELLOW}🔨 Building VCS Hyperdrive...${NC}"
     go build -ldflags "-s -w" -o "$BINARY_NAME" ./cmd/vcs
     
-    # Install to /usr/local/bin
-    INSTALL_DIR="/usr/local/bin"
-    echo -e "${YELLOW}📦 Installing to $INSTALL_DIR...${NC}"
-    
-    if [[ ! -w "$INSTALL_DIR" ]]; then
-        echo -e "${YELLOW}🔐 Installing with sudo...${NC}"
-        sudo mv "$BINARY_NAME" "$INSTALL_DIR/"
-        sudo chmod +x "$INSTALL_DIR/$BINARY_NAME"
+    # Install
+    if [[ -w "/usr/local/bin" ]]; then
+        mv "$BINARY_NAME" "/usr/local/bin/"
     else
-        mv "$BINARY_NAME" "$INSTALL_DIR/"
-        chmod +x "$INSTALL_DIR/$BINARY_NAME"
+        sudo mv "$BINARY_NAME" "/usr/local/bin/"
     fi
-    
-    # Clean up
-    cd /
-    rm -rf "$TEMP_DIR"
-    
-    echo -e "${GREEN}✅ Installation complete!${NC}"
-    
-else
-    echo -e "${RED}❌ Go not found and pre-built binaries not available yet${NC}"
-    echo -e "${YELLOW}Please install Go and try again, or use Homebrew on macOS${NC}"
-    echo ""
-    echo "Install Go: https://golang.org/dl/"
-    echo "Install Homebrew: https://brew.sh/"
-    exit 1
-fi
+}
 
 echo ""
 echo -e "${GREEN}${BOLD}🎉 VCS Hyperdrive installed successfully!${NC}"

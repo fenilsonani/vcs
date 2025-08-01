@@ -114,11 +114,37 @@ clean:
 	rm -rf $(BUILD_DIR)
 	rm -f coverage.out coverage.html
 
-# Install the binary to $GOPATH/bin
+# Install the binary
 install: build
 	@echo "Installing $(BINARY_NAME)..."
-	cp $(BUILD_DIR)/$(BINARY_NAME) $(GOPATH)/bin/
-	@echo "Installed to $(GOPATH)/bin/$(BINARY_NAME)"
+	@if [ -n "$(GOPATH)" ] && [ -d "$(GOPATH)/bin" ]; then \
+		echo "Installing to $(GOPATH)/bin/"; \
+		cp $(BUILD_DIR)/$(BINARY_NAME) $(GOPATH)/bin/; \
+		echo "Installed to $(GOPATH)/bin/$(BINARY_NAME)"; \
+	elif [ -d "$(HOME)/go/bin" ]; then \
+		echo "Installing to $(HOME)/go/bin/"; \
+		cp $(BUILD_DIR)/$(BINARY_NAME) $(HOME)/go/bin/; \
+		echo "Installed to $(HOME)/go/bin/$(BINARY_NAME)"; \
+		echo ""; \
+		echo "📝 Note: Add $(HOME)/go/bin to your PATH:"; \
+		echo "   echo 'export PATH=\$$PATH:$(HOME)/go/bin' >> ~/.zshrc"; \
+		echo "   source ~/.zshrc"; \
+		echo ""; \
+	elif [ -w "/usr/local/bin" ]; then \
+		echo "Installing to /usr/local/bin/"; \
+		cp $(BUILD_DIR)/$(BINARY_NAME) /usr/local/bin/; \
+		echo "Installed to /usr/local/bin/$(BINARY_NAME)"; \
+	else \
+		echo "Installing to /usr/local/bin/ (requires sudo)"; \
+		sudo cp $(BUILD_DIR)/$(BINARY_NAME) /usr/local/bin/; \
+		echo "Installed to /usr/local/bin/$(BINARY_NAME)"; \
+	fi
+
+# Install using go install (alternative method)
+install-go:
+	@echo "Installing via go install..."
+	go install ./cmd/vcs
+	@echo "Installed via go install"
 
 # Run the application
 run: build
