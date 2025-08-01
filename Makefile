@@ -52,6 +52,41 @@ bench:
 	@echo "Running benchmarks..."
 	$(GOTEST) -bench=. -benchmem ./benchmarks/...
 
+# Quick benchmark - Hyperdrive performance tests
+bench-quick:
+	@echo "Running quick performance benchmarks..."
+	$(GOTEST) -run=^$$ -bench=BenchmarkHyperdrive ./cmd/vcs -benchtime=1s
+
+# Full performance suite
+bench-full:
+	@echo "Running full benchmark suite..."
+	$(GOTEST) -run=^$$ -bench=. ./cmd/vcs -benchtime=10s -benchmem
+
+# Hardware acceleration tests
+bench-hardware:
+	@echo "Running hardware acceleration benchmarks..."
+	$(GOTEST) -run=^$$ -bench="BenchmarkARM64|BenchmarkAssembly|BenchmarkFPGA" ./cmd/vcs -benchtime=5s
+
+# Large repository simulation
+bench-large-repos:
+	@echo "Running large repository benchmarks..."
+	$(GOTEST) -run=^$$ -bench=BenchmarkLargeRepositories ./cmd/vcs -benchtime=30s -timeout=10m
+
+# Compare with Git
+bench-compare:
+	@echo "Running Git comparison benchmarks..."
+	$(GOTEST) -run=^$$ -bench=BenchmarkGitComparison ./cmd/vcs -benchtime=10s
+
+# Memory allocator benchmarks
+bench-memory:
+	@echo "Running memory allocator benchmarks..."
+	$(GOTEST) -run=^$$ -bench="BenchmarkMemory|BenchmarkAllocator" ./cmd/vcs -benchtime=5s -benchmem
+
+# Extreme concurrency benchmarks
+bench-concurrent:
+	@echo "Running concurrency benchmarks..."
+	$(GOTEST) -run=^$$ -bench="BenchmarkExtremeConcurrency|BenchmarkScalability" ./cmd/vcs -benchtime=10s
+
 # Format code
 fmt:
 	@echo "Formatting code..."

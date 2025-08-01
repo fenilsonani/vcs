@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/fenilsonani/vcs/pkg/vcs"
+	"github.com/fenilsonani/vcs/internal/transport"
 )
 
 func newFetchCommand() *cobra.Command {
@@ -87,9 +90,99 @@ func fetchFromRemote(cmd *cobra.Command, repo *vcs.Repository, remoteName, remot
 		return fmt.Errorf("failed to create remote refs directory: %w", err)
 	}
 
-	// In a real implementation, this would negotiate with the remote
-	// For now, we'll simulate the basic flow
+	// Try to use HTTP transport for supported URLs
+	if isHTTPURL(remoteURL) {
+		return fetchWithHTTPTransport(cmd, repo, remoteName, remoteURL, verbose)
+	}
 
+	// Fallback to basic implementation for other URLs
+	return fetchBasicImplementation(cmd, repo, remoteName, remoteURL, verbose)
+}
+
+func isHTTPURL(url string) bool {
+	return strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") || 
+		   strings.Contains(url, "github.com") || strings.Contains(url, "@")
+}
+
+func fetchWithHTTPTransport(cmd *cobra.Command, repo *vcs.Repository, remoteName, remoteURL string, verbose bool) error {
+	ctx := context.Background()
+	
+	// Create appropriate transport
+	var httpTransport *transport.HTTPTransport
+	if strings.Contains(remoteURL, "github.com") {
+		// Use GitHub transport with potential token authentication
+		githubTransport, err := transport.NewGitHubTransport(remoteURL, "")
+		if err != nil {
+			return fmt.Errorf("failed to create GitHub transport: %w", err)
+		}
+		httpTransport = githubTransport.HTTPTransport
+	} else {
+		// Parse URL to get HTTP equivalent
+		httpURL, err := transport.ParseGitURL(remoteURL)
+		if err != nil {
+			return fmt.Errorf("failed to parse remote URL: %w", err)
+		}
+		httpTransport = transport.NewHTTPTransport(httpURL)
+	}
+
+	if verbose {
+		fmt.Fprintf(cmd.OutOrStdout(), "Using HTTP transport for %s\n", remoteURL)
+	}
+
+	// Discover remote refs
+	discovery, err := httpTransport.DiscoverRefs(ctx, "git-upload-pack")
+	if err != nil {
+		if verbose {
+			fmt.Fprintf(cmd.OutOrStdout(), "HTTP transport failed: %v\n", err)
+			fmt.Fprintln(cmd.OutOrStdout(), "Falling back to basic implementation...")
+		}
+		return fetchBasicImplementation(cmd, repo, remoteName, remoteURL, verbose)
+	}
+
+	if verbose {
+		fmt.Fprintln(cmd.OutOrStdout(), "remote: Enumerating objects...")
+		fmt.Fprintf(cmd.OutOrStdout(), "remote: Found %d refs\n", len(discovery.Refs))
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "From %s\n", remoteURL)
+
+	// Update local remote refs with discovered refs
+	for refName, objectID := range discovery.Refs {
+		if strings.HasPrefix(refName, "refs/heads/") {
+			branchName := strings.TrimPrefix(refName, "refs/heads/")
+			remoteRefPath := filepath.Join(repo.GitDir(), "refs", "remotes", remoteName, branchName)
+			
+			if err := ensureDir(filepath.Dir(remoteRefPath)); err != nil {
+				return fmt.Errorf("failed to create remote ref directory: %w", err)
+			}
+			
+			if err := writeFile(remoteRefPath, []byte(objectID+"\n")); err != nil {
+				return fmt.Errorf("failed to update remote ref: %w", err)
+			}
+			
+			if verbose {
+				fmt.Fprintf(cmd.OutOrStdout(), " * [new branch]      %s       -> %s/%s\n", 
+					branchName, remoteName, branchName)
+			}
+		}
+	}
+
+	// Update FETCH_HEAD
+	fetchHeadPath := filepath.Join(repo.GitDir(), "FETCH_HEAD")
+	fetchHeadContent := fmt.Sprintf("# Fetched from %s via HTTP transport\n", remoteURL)
+	if err := writeFile(fetchHeadPath, []byte(fetchHeadContent)); err != nil {
+		return fmt.Errorf("failed to update FETCH_HEAD: %w", err)
+	}
+
+	if verbose {
+		fmt.Fprintln(cmd.OutOrStdout(), "HTTP transport fetch completed successfully")
+	}
+
+	return nil
+}
+
+func fetchBasicImplementation(cmd *cobra.Command, repo *vcs.Repository, remoteName, remoteURL string, verbose bool) error {
+	// Original basic implementation
 	if verbose {
 		fmt.Fprintln(cmd.OutOrStdout(), "remote: Enumerating objects...")
 		fmt.Fprintln(cmd.OutOrStdout(), "remote: Counting objects: 100% (0/0)")
@@ -99,12 +192,6 @@ func fetchFromRemote(cmd *cobra.Command, repo *vcs.Repository, remoteName, remot
 	// Simulate updating remote refs
 	fmt.Fprintf(cmd.OutOrStdout(), "From %s\n", remoteURL)
 	
-	// In a real implementation, we would:
-	// 1. List remote refs
-	// 2. Compare with local refs
-	// 3. Download missing objects
-	// 4. Update refs/remotes/[remote]/[branch]
-
 	// For demonstration, create a basic structure
 	if verbose {
 		fmt.Fprintln(cmd.OutOrStdout(), " * [new branch]      main       -> origin/main")

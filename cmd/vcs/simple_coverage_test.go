@@ -182,9 +182,7 @@ func TestDiffHelperFunctions(t *testing.T) {
 	// printUnifiedDiff(oldContent, newContent, 3)
 }
 
-func TestUtilityFunctions(t *testing.T) {
-	// Test various utility functions that might exist
-	
+func TestMainGlobalVariables(t *testing.T) {
 	// Test any global variables or constants
 	assert.NotEmpty(t, version)
 	assert.NotEmpty(t, commit)
