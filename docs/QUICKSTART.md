@@ -2,22 +2,25 @@
 
 ## Installation
 
-### macOS (Homebrew)
+### macOS (Homebrew) - Recommended
+
 ```bash
-brew tap vcs/hyperdrive
-brew install vcs-hyperdrive
+# Add VCS Hyperdrive tap
+brew tap fenilsonani/vcs
+
+# Install VCS Hyperdrive  
+brew install vcs
+
+# Verify installation
+vcs --version
+vcs --check-hardware
 ```
 
-### Linux (Package Manager)
-```bash
-# Ubuntu/Debian
-curl -fsSL https://vcs.dev/key.gpg | sudo apt-key add -
-sudo add-apt-repository "deb https://vcs.dev/apt stable main"
-sudo apt update && sudo apt install vcs-hyperdrive
+### One-Line Install (macOS/Linux)
 
-# Fedora/RHEL
-sudo dnf config-manager --add-repo https://vcs.dev/rpm/vcs.repo
-sudo dnf install vcs-hyperdrive
+```bash
+# Auto-detects your system and installs optimally
+curl -fsSL https://raw.githubusercontent.com/fenilsonani/vcs/main/install.sh | bash
 ```
 
 ### Build from Source

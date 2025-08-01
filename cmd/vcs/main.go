@@ -22,6 +22,19 @@ It provides optimized performance for large repositories and seamless GitHub int
 		Version: fmt.Sprintf("%s (commit: %s, built: %s)", version, commit, date),
 	}
 
+	// Add hardware check flag
+	var checkHardware bool
+	rootCmd.Flags().BoolVar(&checkHardware, "check-hardware", false, "Check hardware acceleration support")
+	
+	// Override run function to handle hardware check
+	rootCmd.Run = func(cmd *cobra.Command, args []string) {
+		if checkHardware {
+			checkHardwareSupport()
+			return
+		}
+		cmd.Help()
+	}
+
 	// Add commands
 	rootCmd.AddCommand(
 		newInitCommand(),
@@ -43,6 +56,7 @@ It provides optimized performance for large repositories and seamless GitHub int
 		newPushCommand(),
 		newPullCommand(),
 		newStashCommand(),
+		newBenchmarkCommand(),
 	)
 
 	if err := rootCmd.Execute(); err != nil {

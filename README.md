@@ -101,27 +101,55 @@ Memory Operations:
 
 ## 🛠️ Installation
 
-### Quick Install
+### macOS (Recommended)
 
 ```bash
-# macOS
-brew install vcs-hyperdrive
+# Add VCS Hyperdrive tap
+brew tap fenilsonani/vcs
 
-# Linux
-curl -fsSL https://vcs.dev/install.sh | bash
+# Install VCS Hyperdrive
+brew install vcs
 
-# From source
+# Verify installation
+vcs --version
+vcs --check-hardware
+```
+
+### One-Line Install (macOS/Linux)
+
+```bash
+# Auto-detects your system and installs optimally
+curl -fsSL https://raw.githubusercontent.com/fenilsonani/vcs/main/install.sh | bash
+```
+
+### Build from Source
+
+```bash
+# Requirements: Go 1.21+
 git clone https://github.com/fenilsonani/vcs.git
 cd vcs
 make install
+
+# Or use Go directly
+go install github.com/fenilsonani/vcs/cmd/vcs@latest
 ```
 
-### Requirements
+### System Requirements
 
-- Go 1.21+ (for building from source)
-- x86-64 CPU with AVX2 (optimal performance with AVX-512)
-- ARM64 with NEON (Apple Silicon fully supported)
-- Optional: FPGA accelerator card for maximum performance
+- **macOS**: 10.15+ (Apple Silicon & Intel fully supported)
+- **Linux**: Any modern distribution with glibc 2.17+
+- **CPU**: x86-64 with AVX2 or ARM64 with NEON
+- **Memory**: 1GB RAM minimum, 4GB recommended
+- **Optional**: FPGA accelerator for maximum performance
+
+### Hardware Acceleration Support
+
+| Platform | Features | Performance Boost |
+|----------|----------|-------------------|
+| **Apple Silicon** | NEON, Crypto Extensions | **60 GB/s memory ops** |
+| **Intel x86-64** | SHA-NI, AVX-512, AES-NI | **749 TB/s hashing** |
+| **AMD x86-64** | AVX2, SHA Extensions | **100+ GB/s operations** |
+| **FPGA Cards** | Xilinx Alveo, Intel PAC | **15 TB/s acceleration** |
 
 ## 🎯 Usage
 
