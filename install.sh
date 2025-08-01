@@ -48,25 +48,8 @@ esac
 
 echo -e "${YELLOW}🔍 Detected: $OS/$ARCH${NC}"
 
-# Check for Homebrew on macOS (recommended)
-if [[ "$OS" == "darwin" ]] && command -v brew >/dev/null 2>&1; then
-    echo -e "${GREEN}✅ Homebrew detected! Installing via Homebrew...${NC}"
-    echo ""
-    
-    # Install directly from formula URL
-    echo -e "${YELLOW}📥 Installing VCS Hyperdrive from formula...${NC}"
-    
-    echo -e "${YELLOW}📦 Installing VCS Hyperdrive...${NC}"
-    brew install https://raw.githubusercontent.com/fenilsonani/vcs/main/homebrew/vcs.rb
-    
-    echo -e "${GREEN}✅ Installation complete via Homebrew!${NC}"
-    echo ""
-    echo -e "${BLUE}Verify installation:${NC}"
-    echo "  vcs --version"
-    echo "  vcs --check-hardware"
-    echo ""
-    exit 0
-fi
+# Note: Homebrew tap installation requires separate repository
+# For now, we'll use direct binary download which is faster anyway
 
 # Download pre-built binary
 echo -e "${YELLOW}📥 Downloading pre-built binary...${NC}"

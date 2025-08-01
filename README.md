@@ -101,17 +101,6 @@ Memory Operations:
 
 ## 🛠️ Installation
 
-### macOS (Recommended)
-
-```bash
-# Install directly via Homebrew formula
-brew install https://raw.githubusercontent.com/fenilsonani/vcs/main/homebrew/vcs.rb
-
-# Verify installation
-vcs --version
-vcs --check-hardware
-```
-
 ### One-Line Install (Recommended)
 
 ```bash
