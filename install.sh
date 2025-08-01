@@ -53,14 +53,11 @@ if [[ "$OS" == "darwin" ]] && command -v brew >/dev/null 2>&1; then
     echo -e "${GREEN}✅ Homebrew detected! Installing via Homebrew...${NC}"
     echo ""
     
-    # Check if tap already exists
-    if ! brew tap | grep -q "fenilsonani/vcs"; then
-        echo -e "${YELLOW}📥 Adding VCS Hyperdrive tap...${NC}"
-        brew tap fenilsonani/vcs
-    fi
+    # Install directly from formula URL
+    echo -e "${YELLOW}📥 Installing VCS Hyperdrive from formula...${NC}"
     
     echo -e "${YELLOW}📦 Installing VCS Hyperdrive...${NC}"
-    brew install vcs
+    brew install https://raw.githubusercontent.com/fenilsonani/vcs/main/homebrew/vcs.rb
     
     echo -e "${GREEN}✅ Installation complete via Homebrew!${NC}"
     echo ""

@@ -104,11 +104,8 @@ Memory Operations:
 ### macOS (Recommended)
 
 ```bash
-# Add VCS Hyperdrive tap
-brew tap fenilsonani/vcs
-
-# Install VCS Hyperdrive
-brew install vcs
+# Install directly via Homebrew formula
+brew install https://raw.githubusercontent.com/fenilsonani/vcs/main/homebrew/vcs.rb
 
 # Verify installation
 vcs --version

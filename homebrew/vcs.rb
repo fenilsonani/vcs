@@ -1,8 +1,9 @@
 class Vcs < Formula
   desc "VCS Hyperdrive - The World's Fastest Version Control System"
   homepage "https://github.com/fenilsonani/vcs"
-  url "https://github.com/fenilsonani/vcs/archive/refs/tags/v1.0.0.tar.gz"
-  sha256 "PLACEHOLDER_SHA256" # Will be updated when we create the release
+  url "https://github.com/fenilsonani/vcs/archive/refs/heads/main.tar.gz"
+  version "1.0.0-dev"
+  sha256 :no_check # Development version, will be updated for releases
   license "MIT"
   head "https://github.com/fenilsonani/vcs.git", branch: "main"
 
